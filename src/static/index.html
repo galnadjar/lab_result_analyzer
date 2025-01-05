@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SQL Charts Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f9;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            text-align: center;
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        h1, h2 {
+            color: #333;
+        }
+
+        .button-group {
+            margin: 20px 0;
+        }
+
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        table {
+            width: 100%;
+            margin-top: 20px;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f4f4f4;
+        }
+
+        .success-message {
+            color: green;
+        }
+
+        .error-message {
+            color: red;
+        }
+
+        .statistics {
+            text-align: left;
+            margin: 20px auto;
+        }
+
+        .chart_data {
+            text-align: left;
+            margin: 20px auto;
+        }
+    </style>
+</head>
+<body>
+    <!-- File Upload Form -->
+    <div class="container">
+        <form id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
+            <h2>Upload File</h2>
+            <label for="fileInput">Choose a file:</label>
+            <input type="file" id="fileInput" name="fileInput">
+            <br><br>
+            <button type="submit">Upload</button>
+        </form>
+        <div id="message"></div>
+    </div>
+
+    <!-- SQL Charts Viewer -->
+    <div class="container">
+        <h1>SQL Charts Viewer</h1>
+        <p>Click a button below to display the corresponding SQL chart data and statistics.</p>
+        <div class="button-group">
+            <button onclick="loadChart('TNS')">TNS Data</button>
+            <button onclick="loadChart('Zeta')">Zeta Potential Data</button>
+        </div>
+        <div id="chart">
+            <p>No data loaded yet.</p>
+        </div>
+    </div>
+
+    <script>
+        // Handle file upload via AJAX
+        document.getElementById("uploadForm").addEventListener("submit", async function (event) {
+            event.preventDefault();
+
+            const form = event.target;
+            const formData = new FormData(form);
+            const messageDiv = document.getElementById("message");
+            try {
+                const response = await fetch("http://localhost:8000/upload", {
+                    method: "POST",
+                    body: formData,
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.error)
+                        messageDiv.innerHTML = `<p class="error-message">File "${result.error}" </p>`;
+                    else
+                        messageDiv.innerHTML = `<p class="success-message">File "${result.filename}" uploaded successfully!</p>`;
+                } else {
+                    const error = await response.json();
+                    messageDiv.innerHTML = `<p class="error-message">Error: ${error.detail || "Failed to upload file"}</p>`;
+                }
+            } catch (err) {
+                messageDiv.innerHTML = `<p class="error-message">Unexpected error: ${err.message}</p>`;
+            }
+        });
+
+        // Handle chart data loading and display it in a table
+        function loadChart(experimentType) {
+            const chartDiv = document.getElementById('chart');
+            chartDiv.innerHTML = `<p>Loading ${experimentType} data...</p>`;
+
+            fetch(`/api/charts/${experimentType}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error("Failed to load data");
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log("API Response:", data);
+                    const rows = data.results || [];
+                    const stats = data.statistics || {};
+
+                    if (rows.length === 0) {
+                        chartDiv.innerHTML = `<p>No data available for ${experimentType}.</p>`;
+                        return;
+                    }
+
+                    // Display statistics
+                    let statistics = `
+                        <div class="statistics">
+                            <h2>Statistics</h2>
+                            <p><strong>Median:</strong> ${stats.median}</p>
+                            <p><strong>Average:</strong> ${stats.average}</p>
+                            <p><strong>Standard Deviation:</strong> ${stats.std_dev}</p>
+                        </div>
+                    `;
+
+
+                    // Display table of results
+                    let table = `
+                        <div class="chart_data">
+                        <h2>Chart</h2>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Formulation ID</th>
+                                    <th>Calculated Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+
+                    rows.forEach(row => {
+                        table += `
+                            <tr>
+                                <td>${row.id}</td>
+                                <td>${row.formulation_id}</td>
+                                <td>${row.calculated_value}</td>
+                            </tr>
+                        `;
+                    });
+
+                    table += '</tbody></table>' + '</div>';
+                    chartDiv.innerHTML = statistics + table;
+                })
+                .catch(error => {
+                    chartDiv.innerHTML = `<p class="error-message">Error: ${error.message}</p>`;
+                });
+        }
+    </script>
+</body>
+</html>
