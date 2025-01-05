@@ -7,8 +7,7 @@ from src.sqldb import SQLiteDB
 from src.handler import handle_upload, handle_bootstrap
 from src.constants import UPLOAD_DIR, STATIC_DIR
 
-# initialize DB & API
-app = FastAPI(lifespan=lifespan)
+# initialize DB
 db = SQLiteDB("experiments.db")
 
 
@@ -23,6 +22,9 @@ async def lifespan(app: FastAPI):
     await startup_event()
     yield
     await shutdown_event()
+
+# Initialize the FastAPI app
+app = FastAPI(lifespan=lifespan)
 
 @app.get("/")
 def serve_root_page():
